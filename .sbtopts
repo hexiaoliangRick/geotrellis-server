@@ -5,3 +5,9 @@
 -Djava.awt.headless=true
 -Dsbt.color=always
 -Dsbt.supershell=false
+
+-Dsbt.boot.directory=C:/05_soft/sbt-1.6.2/data/.sbt/boot
+-Dsbt.global.base=C:/05_soft/sbt-1.6.2/data/.sbt
+-Dsbt.ivy.home=C:/05_soft/sbt-1.6.2/.ivy2
+-Dsbt.coursier.home=C:/05_soft/sbt-1.6.2/coursier
+-Dsbt.repository.config=C:/05_soft/sbt-1.6.2/conf/repo.properties

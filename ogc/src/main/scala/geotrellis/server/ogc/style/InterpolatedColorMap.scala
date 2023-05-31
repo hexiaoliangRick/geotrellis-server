@@ -57,7 +57,8 @@ object InterpolatedColorMap {
     val g         = (color1.green + (color2.green - color1.green) * proportion).toInt
     val b         = (color1.blue + (color2.blue - color1.blue) * proportion).toInt
     val a: Double = (color1.alpha + (color2.alpha - color1.alpha) * proportion) / 2.55
-    RGBA.apply(r, g, b, a)
+    //RGBA.apply(r, g, b, a)
+    RGBA.fromRGBAPct(r, g, b, a)
   }
 
   /** For production of colors along a continuum */

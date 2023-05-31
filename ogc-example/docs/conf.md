@@ -3,7 +3,7 @@
 The behavior of the OGC services is largely dependent upon a single,
 static configuration file in the
 [HOCON format](https://github.com/lightbend/config/blob/b782a2d701fc2b045794b4eed47a4b01e745f3a6/HOCON.md).
-This file (example here: [application.conf](../src/main/resources/application.conf))
+This file (example here: [application.conf](../src/main/resources/application_bak.conf))
 defines the sourcing of each layer and much of the associated metadata
 advertised during `GetCapabilities` requests.
 

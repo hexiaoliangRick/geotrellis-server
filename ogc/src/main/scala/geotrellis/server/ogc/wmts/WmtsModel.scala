@@ -18,25 +18,25 @@ package geotrellis.server.ogc.wmts
 
 import geotrellis.server.ogc._
 import geotrellis.server.ogc.style._
-import geotrellis.server.ogc.wmts.WmtsParams.GetTile
+import geotrellis.server.ogc.wmts.WmtsParams.{GetTile, logger}
 import geotrellis.layer._
 import geotrellis.proj4._
 import geotrellis.store.query.RepositoryM
-
 import cats.Monad
 import cats.syntax.functor._
 import cats.syntax.apply._
 import cats.instances.option._
 
 /** This class holds all the information necessary to construct a response to a WMTS request */
-case class WmtsModel[F[_]: Monad](
-  serviceMetadata: ows.ServiceMetadata,
-  matrices: List[GeotrellisTileMatrixSet],
-  sources: RepositoryM[F, List, OgcSource]
-) {
+case class WmtsModel[F[_] : Monad](
+                                    serviceMetadata: ows.ServiceMetadata,
+                                    matrices: List[GeotrellisTileMatrixSet],
+                                    sources: RepositoryM[F, List, OgcSource]
+                                  ) {
 
   val matrixSetLookup: Map[String, GeotrellisTileMatrixSet] =
     matrices.map(tileMatrixSet => tileMatrixSet.identifier -> tileMatrixSet).toMap
+
 
   /**
    * Take a specific request for a map and combine it with the relevant [[OgcSource]] to produce a [[TiledOgcLayer]]
@@ -54,23 +54,29 @@ case class WmtsModel[F[_]: Monad](
             case mas: MapAlgebraSource =>
               val (name, title, algebra, resampleMethod, overviewStrategy) =
                 (mas.name, mas.title, mas.algebra, mas.resampleMethod, mas.overviewStrategy)
-
               val simpleLayers = mas.sources.mapValues { rs =>
                 SimpleTiledOgcLayer(name, title, crs, layout, rs, style, resampleMethod, overviewStrategy)
               }
               MapAlgebraTiledOgcLayer(name, title, crs, layout, simpleLayers, algebra, style, resampleMethod, overviewStrategy)
             case ss: SimpleSource =>
               SimpleTiledOgcLayer(ss.name, ss.title, crs, layout, ss.source, style, ss.resampleMethod, ss.overviewStrategy)
+            case ss: GeoTrellisOgcSource =>
+              SimpleTiledOgcLayer(ss.name, ss.title, crs, layout, ss.source, style, ss.resampleMethod, ss.overviewStrategy)
           }
         }
       }
     }
-  } map { _ getOrElse Nil }
+  } map {
+    _ getOrElse Nil
+  }
 
   def getMatrixLayoutDefinition(tileMatrixSetId: String, tileMatrixId: String): Option[LayoutDefinition] =
     for {
       matrixSet <- matrixSetLookup.get(tileMatrixSetId)
-      matrix    <- matrixSet.tileMatrix.find(_.identifier == tileMatrixId)
+      matrix <- matrixSet.tileMatrix.find(v => {
+        logger.debug(s"${v.identifier}")
+        v.identifier.equals(tileMatrixId)
+      })
     } yield matrix.layout
 
   def getMatrixCrs(tileMatrixSetId: String): Option[CRS] =

@@ -29,7 +29,9 @@ import cats.data.{NonEmptyList => NEL}
 import cats.syntax.option._
 import cats.syntax.semigroup._
 import com.azavea.maml.ast.Expression
+import geotrellis.server.ogc.store.S3Producer
 import geotrellis.store.query.vector.ProjectedGeometry
+import geotrellis.store.s3.S3ClientProducer
 import jp.ne.opt.chronoscala.Imports._
 import opengis.wms.BoundingBox
 
@@ -139,6 +141,9 @@ case class GeoTrellisOgcSource(
 
   private val dataPath = GeoTrellisPath.parse(sourceUri)
 
+  S3ClientProducer.set(()=>{
+    S3Producer.apply()
+  })
   lazy val source = {
     val attributeStore = AttributeStore(dataPath.value)
     new GeoTrellisRasterSource(

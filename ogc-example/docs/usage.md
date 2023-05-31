@@ -11,12 +11,12 @@ begin serving layers:
    sent.
 4. The path to a file which specifies layer, style, and metadata configurations
    for the layers to be served (defaults to
-   [application.conf](../src/main/resources/application.conf))
+   [application.conf](../src/main/resources/application_bak.conf))
 
 ### Running in SBT
 
 To start the development server (with default configuration provided by
-[application.conf](../src/main/resources/application.conf)):
+[application.conf](../src/main/resources/application_bak.conf)):
 
 Start SBT
 ```sh

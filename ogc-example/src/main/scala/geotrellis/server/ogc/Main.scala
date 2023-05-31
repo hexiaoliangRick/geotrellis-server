@@ -39,149 +39,150 @@ import java.net.URL
 import java.util.concurrent.Executors
 
 object Main
-    extends CommandApp(
-      name = "java -jar geotrellis-pointcloud-server-assembly.jar",
-      header = "Host GT layers through WMS, WMTS, and WCS services",
-      main = {
-        implicit val logger: Logger[IO] = Slf4jLogger.getLogger
+  extends CommandApp(
+    name = "java -jar geotrellis-pointcloud-server-assembly.jar",
+    header = "Host GT layers through WMS, WMTS, and WCS services",
+    main = {
+      implicit val logger: Logger[IO] = Slf4jLogger.getLogger
 
-        // TODO: remove it
-        val loggerSync = org.log4s.getLogger
+      // TODO: remove it
+      val loggerSync = org.log4s.getLogger
 
-        val publicUrlReq =
-          Opts.option[String](
-            "public-url",
-            short = "u",
-            help = "Public URL for services to advertise"
+      val publicUrlReq =
+        Opts.option[String](
+          "public-url",
+          short = "u",
+          help = "Public URL for services to advertise"
+        )
+
+      val interfaceOpt = Opts
+        .option[String](
+          "interface",
+          short = "i",
+          help = "The interface for this server to bind on"
+        )
+        .withDefault("0.0.0.0")
+
+      val portOpt = Opts
+        .option[Int](
+          "port",
+          short = "p",
+          help = "The port for this server to bind on"
+        )
+        .withDefault(9000)
+
+      val configPathOpt = Opts
+        .option[String](
+          "conf",
+          short = "c",
+          help = "Full path to a HOCON configuration file (https://github.com/lightbend/config/blob/master/HOCON.md)"
+        )
+        .orNone
+
+      (publicUrlReq, interfaceOpt, portOpt, configPathOpt).mapN { (publicUrl, interface, port, configPath) =>
+        loggerSync.info(ansi"%green{Locally binding services to ${interface}:${port}}")
+        loggerSync.info(ansi"%green{Advertising services at ${publicUrl}}")
+        configPath match {
+          case Some(path) => loggerSync.info(ansi"%green{Layer and style configurations loaded from ${path}.}")
+          case None => loggerSync.info(ansi"%red{Warning}: No configuration path provided. Loading defaults.")
+        }
+
+        implicit val executionContext: ExecutionContext =
+          ExecutionContext.fromExecutor(
+            Executors.newCachedThreadPool(
+              new ThreadFactoryBuilder()
+                .setNameFormat("raster-io-%d")
+                .build()
+            )
           )
+        implicit val cs: ContextShift[IO] =
+          IO.contextShift(executionContext)
+        implicit val timer: Timer[IO] = IO.timer(executionContext)
 
-        val interfaceOpt = Opts
-          .option[String](
-            "interface",
-            short = "i",
-            help = "The interface for this server to bind on"
-          )
-          .withDefault("0.0.0.0")
+        val commonMiddleware: HttpMiddleware[IO] = { (routes: HttpRoutes[IO]) =>
+          CORS(routes)
+        }
 
-        val portOpt = Opts
-          .option[Int](
-            "port",
-            short = "p",
-            help = "The port for this server to bind on"
-          )
-          .withDefault(9000)
+        def logOptState[A](
+                            opt: Option[A],
+                            upLog: String,
+                            downLog: String
+                          ): IO[Unit] = opt.fold(logger.info(downLog))(_ => logger.info(upLog))
 
-        val configPathOpt = Opts
-          .option[String](
-            "conf",
-            short = "c",
-            help = "Full path to a HOCON configuration file (https://github.com/lightbend/config/blob/master/HOCON.md)"
-          )
-          .orNone
-
-        (publicUrlReq, interfaceOpt, portOpt, configPathOpt).mapN { (publicUrl, interface, port, configPath) =>
-          loggerSync.info(ansi"%green{Locally binding services to ${interface}:${port}}")
-          loggerSync.info(ansi"%green{Advertising services at ${publicUrl}}")
-          configPath match {
-            case Some(path) => loggerSync.info(ansi"%green{Layer and style configurations loaded from ${path}.}")
-            case None       => loggerSync.info(ansi"%red{Warning}: No configuration path provided. Loading defaults.")
-          }
-
-          implicit val executionContext: ExecutionContext =
-            ExecutionContext.fromExecutor(
-              Executors.newCachedThreadPool(
-                new ThreadFactoryBuilder()
-                  .setNameFormat("raster-io-%d")
-                  .build()
+        def createServer: Resource[IO, Server[IO]] =
+          for {
+            //todo 转移到数据库中
+            conf <- Conf.loadResourceF[IO](configPath)
+            simpleSources = conf.layers.values.collect { case rsc: RasterSourceConf => rsc.toLayer }.toList
+            _ <- Resource.eval(
+              logOptState(
+                conf.wms,
+                ansi"%green{WMS configuration detected}, starting Web Map Service",
+                ansi"%red{No WMS configuration detected}, unable to start Web Map Service"
               )
             )
-          implicit val cs: ContextShift[IO] =
-            IO.contextShift(executionContext)
-          implicit val timer: Timer[IO] = IO.timer(executionContext)
-
-          val commonMiddleware: HttpMiddleware[IO] = { (routes: HttpRoutes[IO]) =>
-            CORS(routes)
-          }
-
-          def logOptState[A](
-            opt: Option[A],
-            upLog: String,
-            downLog: String
-          ): IO[Unit] = opt.fold(logger.info(downLog))(_ => logger.info(upLog))
-
-          def createServer: Resource[IO, Server[IO]] =
-            for {
-              conf <- Conf.loadResourceF[IO](configPath)
-              simpleSources = conf.layers.values.collect { case rsc: RasterSourceConf => rsc.toLayer }.toList
-              _ <- Resource.eval(
-                logOptState(
-                  conf.wms,
-                  ansi"%green{WMS configuration detected}, starting Web Map Service",
-                  ansi"%red{No WMS configuration detected}, unable to start Web Map Service"
-                )
+            wmsModel = conf.wms.map { svc =>
+              WmsModel[IO](
+                svc.serviceMetadata,
+                svc.parentLayerMeta,
+                svc.layerSources(simpleSources),
+                ExtendedParameters.extendedParametersBinding
               )
-              wmsModel = conf.wms.map { svc =>
-                WmsModel[IO](
-                  svc.serviceMetadata,
-                  svc.parentLayerMeta,
-                  svc.layerSources(simpleSources),
-                  ExtendedParameters.extendedParametersBinding
-                )
-              }
-              _ <- Resource.eval(
-                logOptState(
-                  conf.wmts,
-                  ansi"%green{WMTS configuration detected}, starting Web Map Tiling Service",
-                  ansi"%red{No WMTS configuration detected}, unable to start Web Map Tiling Service"
-                )
+            }
+            _ <- Resource.eval(
+              logOptState(
+                conf.wmts,
+                ansi"%green{WMTS configuration detected}, starting Web Map Tiling Service",
+                ansi"%red{No WMTS configuration detected}, unable to start Web Map Tiling Service"
               )
-              wmtsModel = conf.wmts.map { svc =>
-                WmtsModel[IO](
-                  svc.serviceMetadata,
-                  svc.tileMatrixSets,
-                  svc.layerSources(simpleSources)
-                )
-              }
-              _ <- Resource.eval(
-                logOptState(
-                  conf.wcs,
-                  ansi"%green{WCS configuration detected}, starting Web Coverage Service",
-                  ansi"%red{No WCS configuration detected}, unable to start Web Coverage Service"
-                )
+            )
+            wmtsModel = conf.wmts.map { svc =>
+              WmtsModel[IO](
+                svc.serviceMetadata,
+                svc.tileMatrixSets,
+                svc.layerSources(simpleSources)
               )
-              wcsModel = conf.wcs.map { svc =>
-                WcsModel[IO](
-                  svc.serviceMetadata,
-                  svc.layerSources(simpleSources),
-                  svc.supportedProjections,
-                  ExtendedParameters.extendedParametersBinding
-                )
-              }
+            }
+            _ <- Resource.eval(
+              logOptState(
+                conf.wcs,
+                ansi"%green{WCS configuration detected}, starting Web Coverage Service",
+                ansi"%red{No WCS configuration detected}, unable to start Web Coverage Service"
+              )
+            )
+            wcsModel = conf.wcs.map { svc =>
+              WcsModel[IO](
+                svc.serviceMetadata,
+                svc.layerSources(simpleSources),
+                svc.supportedProjections,
+                ExtendedParameters.extendedParametersBinding
+              )
+            }
 
-              ogcService = new OgcService[IO](
-                wmsModel,
-                wcsModel,
-                wmtsModel,
-                new URL(publicUrl)
+            ogcService = new OgcService[IO](
+              wmsModel,
+              wcsModel,
+              wmtsModel,
+              new URL(publicUrl)
+            )
+            server <- BlazeServerBuilder[IO](executionContext)
+              .withIdleTimeout(Duration.Inf)
+              .withResponseHeaderTimeout(Duration.Inf)
+              .enableHttp2(true)
+              .bindHttp(port, interface)
+              .withHttpApp(
+                Router(
+                  "/" -> commonMiddleware(ogcService.routes)
+                ).orNotFound
               )
-              server <- BlazeServerBuilder[IO](executionContext)
-                .withIdleTimeout(Duration.Inf)
-                .withResponseHeaderTimeout(Duration.Inf)
-                .enableHttp2(true)
-                .bindHttp(port, interface)
-                .withHttpApp(
-                  Router(
-                    "/" -> commonMiddleware(ogcService.routes)
-                  ).orNotFound
-                )
-                .resource
-            } yield server
+              .resource
+          } yield server
 
-          createServer
-            .use(_ => IO.never)
-            .as(ExitCode.Success)
-            .void
-            .unsafeRunSync
-        }
+        createServer
+          .use(_ => IO.never)
+          .as(ExitCode.Success)
+          .void
+          .unsafeRunSync
       }
-    )
+    }
+  )

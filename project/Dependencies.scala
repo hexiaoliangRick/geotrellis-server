@@ -18,7 +18,7 @@ object Dependencies {
   val scalaVer      = crossScalaVer.head
 
   val dispatchVer  = "0.11.3"
-  val gtVer        = "3.5.0"
+  val gtVer        = "3.6.0"
   val stac4sVer    = "0.6.2"
   val jaxbApiVer   = "2.3.1"
   val refinedVer   = "0.9.23"
@@ -41,7 +41,7 @@ object Dependencies {
   val geotrellisLayer      = "org.locationtech.geotrellis"           %% "geotrellis-layer"            % gtVer
   val geotrellisVector     = "org.locationtech.geotrellis"           %% "geotrellis-vector"           % gtVer
   val geotrellisS3         = "org.locationtech.geotrellis"           %% "geotrellis-s3"               % gtVer
-  val geotrellisStore      = "org.locationtech.geotrellis"           %% "geotrellis-store"            % gtVer
+  val geotrellisStore      = "org.locationtech.geotrellis"           %% "geotrellis-store"            % gtVer withSources()
   val geotrellisHBase      = "org.locationtech.geotrellis"           %% "geotrellis-hbase"            % gtVer
   val geotrellisAccumulo   = "org.locationtech.geotrellis"           %% "geotrellis-accumulo"         % gtVer
   val geotrellisCassandra  = "org.locationtech.geotrellis"           %% "geotrellis-cassandra"        % gtVer

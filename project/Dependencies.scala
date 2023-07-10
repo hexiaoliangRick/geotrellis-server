@@ -23,6 +23,7 @@ object Dependencies {
   val jaxbApiVer   = "2.3.1"
   val refinedVer   = "0.9.23"
   val shapelessVer = "2.3.3"
+  val log4jVer     = "2.20.0"
 
   val cats                 = catsVersion("core")
   val catsEffect           = catsVersion("effect")

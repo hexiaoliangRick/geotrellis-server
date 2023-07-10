@@ -53,6 +53,7 @@ lazy val commonSettings = Seq(
     "eclipse-snapshots" at "https://repo.eclipse.org/content/groups/snapshots",
     "jitpack" at "https://jitpack.io"
   ),
+  addDependencyTreePlugin,
   addCompilerPlugin(kindProjector cross CrossVersion.full),
   addCompilerPlugin(macrosParadise cross CrossVersion.full),
   addCompilerPlugin(semanticdbScalac cross CrossVersion.full),
@@ -317,7 +318,7 @@ lazy val `ogc-example` = project
     ),
     excludeDependencies ++= Seq(
       // log4j brought in via uzaygezen is a pain for us
-      ExclusionRule("log4j", "log4j"),
+//      ExclusionRule("log4j", "log4j")
       ExclusionRule("org.slf4j", "slf4j-log4j12"),
       ExclusionRule("org.slf4j", "slf4j-nop")
     )

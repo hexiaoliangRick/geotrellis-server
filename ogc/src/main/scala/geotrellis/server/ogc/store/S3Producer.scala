@@ -16,9 +16,9 @@ import java.net.URI
 object S3Producer extends Serializable {
 
   def apply(): S3Client = {
-    val cred = AwsBasicCredentials.create("minio", "Bdhxx@2021")
+    val cred = AwsBasicCredentials.create("Minio", "Ahxiedooc!ae5Am4")
     val credProvider = StaticCredentialsProvider.create(cred)
-    val url = new URI("http://10.11.15.23:9000")
+    val url = new URI("http://10.7.18.106:9000")
     S3Client.builder()
       .endpointOverride(url)
       .credentialsProvider(credProvider)
